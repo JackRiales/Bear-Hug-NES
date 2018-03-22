@@ -68,44 +68,22 @@ _loadpalettes_loop:
     ;- if x = $20, 32 bytes copied to ppu, we're done
     bne _loadpalettes_loop
 
-;- Sets sprite $A to position $x and $y
-;- Precondition: $A, $x, $y set appropriately
-;- Postcondition: $0200-$0203 updated
-setsprite:
-    sty $0200        ; Set y position from y register
-    stx $0203        ; Set x position from x register
-    sta $0201        ; Set tile id from accumulator
-    lda #$00
-    sta $0202        ; Color = 0, no flipping
-    rts
-    
-setspritestatic:
-    lda #$80
-    sta $0200       ; Sprite 0 in center ($80) of the screen (y)
-    sta $0203       ; Sprite 0 in center ($80) of the screen (x)
-    lda #$00
-    sta $0201       ; Tile number = 0
-    sta $0202       ; Color = 0, no flippin'
-    rts
+loadsprites:
+    ldx #$00        ; Using x as offset, start at 0
+_loadsprites_loop:
+    lda sprites, x  ; Load data from address (sprites + x as offset)
+    sta $0200, x    ; Store to sprite ram at offset
+    inx
+    cpx #$20
+    bne _loadsprites_loop
 
-drawsprite:
-    lda #%10000000  ; Enable nmi and sprites from pattern table 0
-    sta $2000       ; Write to ppuctrl
-    lda #%00010000  ; Enable sprites
-    sta $2001       ; Write to ppumask
-    rts
+    lda #%10000000   ; enable NMI, sprites from Pattern Table 1
+    lda $2000
 
-;- Temporarily named main loop
-    lda #$80    ; Initial x and y position
-    sta $0200
-    sta $0203
+    lda #%00010000   ; enable sprites
+    lda $2001
 
 FOREVER:
-    ldx $0203
-    ldy $0200
-    lda #$00
-    jsr setspritestatic
-    jsr drawsprite
     jmp FOREVER
 
 NMI:
@@ -120,12 +98,20 @@ NMI:
 ;-------------------------------------------
     .bank 1
 
-    .org $E000  ; Palettes
+    ;- Variables
+    .org $E000
 palette:
     .db $0F,$31,$32,$33,$0F,$35,$36,$37,$0F,$39,$3A,$3B,$0F,$3D,$3E,$0F
     .db $0F,$1C,$15,$14,$0F,$02,$38,$3C,$0F,$1C,$15,$14,$0F,$02,$38,$3C
 
-    .org $FFFA  ; Vectors
+sprites:
+    .db $80, $32, $00, $80  ; Bear
+    .db $80, $33, $00, $88   ;sprite 1
+    .db $88, $34, $00, $80   ;sprite 2
+    .db $88, $35, $00, $88   ;sprite 3
+
+    ;- Vectors
+    .org $FFFA
     .dw NMI     ; When NMI happens, we'll jump here
     .dw RESET   ; When we initialize, we jump here
     .dw 0       ; When we set up IRQ, we'll set the label here
